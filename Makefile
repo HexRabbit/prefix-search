@@ -17,7 +17,7 @@ endif
 
 GIT_HOOKS := .git/hooks/applied
 
-.PHONY: all clean
+.PHONY: all clean bench
 
 all: $(GIT_HOOKS) $(TESTS)
 
@@ -46,17 +46,25 @@ test_%: test_%.o $(OBJS_LIB)
 clean:
 	$(RM) $(TESTS) $(OBJS)
 	$(RM) $(deps)
+	$(RM) *.txt
 
 bench: $(TESTS) 
 	-rm output.txt
 	./generate_input.py 10000
-	for method in $(TESTS); do\
+	for method in $(TESTS);\
+	do \
 		echo "match" >> output.txt; \
-		./$$method < match_input.txt; \
+		./$$method < match_input.txt > /dev/null; \
 		echo "bad" >> output.txt; \
-		./$$method < bad_input.txt; \
+		./$$method < bad_input.txt > /dev/null; \
 	done
 
-cache_test: $(TESTS)
+perf_test: $(TESTS)
+	for method in $(TESTS);\
+	do \
+		perf stat -cache-misses,cache-references,branch-misses,branches,instructions,cycles ./$$method < match_input.txt > /dev/null; \
+		perf stat -cache-misses,cache-references,branch-misses,branches,instructions,cycles ./$$method < bad_input.txt > /dev/null; \
+	done
+
 
 -include $(deps)
