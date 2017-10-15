@@ -251,7 +251,7 @@ void *tst_ins_del(tst_node **root, char *const *s, const int del, const int cpy)
     }
 
     /* if not duplicate, insert remaining chars into tree rooted at curr */
-    for (;;) {
+    while (!del) {
         /* allocate memory for node, and fill. use calloc (or include
          * string.h and initialize w/memset) to avoid valgrind warning
          * "Conditional jump or move depends on uninitialised value(s)"
@@ -285,6 +285,7 @@ void *tst_ins_del(tst_node **root, char *const *s, const int del, const int cpy)
         }
         pcurr = &(curr->eqkid);
     }
+    return (void *)1;
 }
 
 /** tst_search(), non-recursive find of a string internary tree.
@@ -419,8 +420,7 @@ void tst_free_all(tst_node *p)
 /** free the ternary search tree rooted at p, data storage external. */
 void tst_free(tst_node *p)
 {
-    if (!p)
-        return;
+    if (!p) return;
     tst_free(p->lokid);
     if (p->key)
         tst_free(p->eqkid);
