@@ -6,9 +6,10 @@
 #include "tst.h"
 
 /** constants insert, delete, max word(s) & stack nodes */
-enum { INS, DEL, WRDMAX = 256, STKMAX = 512, LMAX = 1024 };
+enum { INS, DEL, WRDMAX = 256, STKMAX = 512, LMAX = 1024, ORDMAX = 100000, REFMAX = 25600000 };
 #define REF INS
 #define CPY DEL
+#define OUTFILE "output.txt"
 
 /* timing helper function */
 static double tvgetf(void)
@@ -32,7 +33,23 @@ static void rmcrlf(char *s)
         s[--len] = 0;
 }
 
-#define IN_FILE "cities.txt"
+#define IN_FILE "dictionary/cities.txt"
+int ord, reflen;
+char *refer[ORDMAX];
+char *pool_request(char *s)
+{
+    if(reflen + strlen(s) + 1 >= REFMAX) {
+        refer[++ord] = (char*)malloc(sizeof(char)*REFMAX);
+        reflen = 0;
+    }
+    char *tmp = strdup(s), *fp = NULL;
+    fp = strcpy(refer[ord] + reflen, tmp);
+    reflen += strlen(s) + 1;
+    if(tmp) free(tmp);
+
+    return fp;
+}
+
 
 int main(int argc, char **argv)
 {
@@ -41,7 +58,11 @@ int main(int argc, char **argv)
     tst_node *root = NULL, *res = NULL;
     int rtn = 0, idx = 0, sidx = 0;
     FILE *fp = fopen(IN_FILE, "r");
+    double opt[5];
     double t1, t2;
+
+    ord = reflen = 0;
+    refer[ord] = (char*)malloc(sizeof(char)*REFMAX);
 
     if (!fp) { /* prompt, open, validate file for reading */
         fprintf(stderr, "error: file open failed '%s'.\n", argv[1]);
@@ -50,9 +71,8 @@ int main(int argc, char **argv)
 
     t1 = tvgetf();
     while ((rtn = fscanf(fp, "%s", word)) != EOF) {
-        char *p = word;
-        /* FIXME: insert reference to each string */
-        if (!tst_ins_del(&root, &p, INS, CPY)) {
+        char *p = pool_request(word);
+        if (!tst_ins_del(&root, &p, INS, REF)) {
             fprintf(stderr, "error: memory exhausted, tst_insert.\n");
             fclose(fp);
             return 1;
@@ -60,6 +80,7 @@ int main(int argc, char **argv)
         idx++;
     }
     t2 = tvgetf();
+    opt[0] += t2-t1;
 
     fclose(fp);
     printf("ternary_tree, loaded %d words in %.6f sec\n", idx, t2 - t1);
@@ -71,12 +92,13 @@ int main(int argc, char **argv)
             " f  find word in tree\n"
             " s  search words matching prefix\n"
             " d  delete word from the tree\n"
-            " q  quit, freeing all data\n\n"
+            " q  quit, freeing all data\n"
+            " e  eject, output the data\n\n"
             "choice: ");
         fgets(word, sizeof word, stdin);
 
+        char *p = NULL;
         switch (*word) {
-            char *p = NULL;
         case 'a':
             printf("enter word to add: ");
             if (!fgets(word, sizeof word, stdin)) {
@@ -84,11 +106,11 @@ int main(int argc, char **argv)
                 break;
             }
             rmcrlf(word);
-            p = word;
+            p = pool_request(word);
             t1 = tvgetf();
-            /* FIXME: insert reference to each string */
-            res = tst_ins_del(&root, &p, INS, CPY);
+            res = tst_ins_del(&root, &p, INS, REF);
             t2 = tvgetf();
+            opt[1] += t2-t1;
             if (res) {
                 idx++;
                 printf("  %s - inserted in %.6f sec. (%d words in tree)\n",
@@ -106,6 +128,7 @@ int main(int argc, char **argv)
             t1 = tvgetf();
             res = tst_search(root, word);
             t2 = tvgetf();
+            opt[2] += t2-t1;
             if (res)
                 printf("  found %s in %.6f sec.\n", (char *) res, t2 - t1);
             else
@@ -121,6 +144,7 @@ int main(int argc, char **argv)
             t1 = tvgetf();
             res = tst_search_prefix(root, word, sgl, &sidx, LMAX);
             t2 = tvgetf();
+            opt[3] += t2-t1;
             if (res) {
                 printf("  %s - searched prefix in %.6f sec\n\n", word, t2 - t1);
                 for (int i = 0; i < sidx; i++)
@@ -138,9 +162,9 @@ int main(int argc, char **argv)
             p = word;
             printf("  deleting %s\n", word);
             t1 = tvgetf();
-            /* FIXME: remove reference to each string */
-            res = tst_ins_del(&root, &p, DEL, CPY);
+            res = tst_ins_del(&root, &p, DEL, REF);
             t2 = tvgetf();
+            opt[4] += t2-t1;
             if (res)
                 printf("  delete failed.\n");
             else {
@@ -149,9 +173,19 @@ int main(int argc, char **argv)
             }
             break;
         case 'q':
-            tst_free_all(root);
+            for(int i = 0; i <= ord; i++) if(!refer[i]) free(refer[i]);
             return 0;
             break;
+        case 'e': {
+            FILE *fp = fopen(OUTFILE, "a");
+            for(int i=0; i<5; ++i) {
+                fprintf(fp,"%.9f ",opt[i]);
+            }
+            fprintf(fp,"\n");
+            fclose(fp);
+            return 0;
+            break;
+        }
         default:
             fprintf(stderr, "error: invalid selection.\n");
             break;
