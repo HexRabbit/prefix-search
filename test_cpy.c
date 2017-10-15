@@ -9,6 +9,7 @@
 enum { INS, DEL, WRDMAX = 256, STKMAX = 512, LMAX = 1024 };
 #define REF INS
 #define CPY DEL
+#define OUTFILE "output.txt"
 
 /* timing helper function */
 static double tvgetf(void)
@@ -41,6 +42,7 @@ int main(int argc, char **argv)
     tst_node *root = NULL, *res = NULL;
     int rtn = 0, idx = 0, sidx = 0;
     FILE *fp = fopen(IN_FILE, "r");
+    double opt[5];
     double t1, t2;
 
     if (!fp) { /* prompt, open, validate file for reading */
@@ -62,6 +64,7 @@ int main(int argc, char **argv)
 
     fclose(fp);
     printf("ternary_tree, loaded %d words in %.6f sec\n", idx, t2 - t1);
+    opt[0] = t2-t1;
 
     for (;;) {
         printf(
@@ -70,12 +73,13 @@ int main(int argc, char **argv)
             " f  find word in tree\n"
             " s  search words matching prefix\n"
             " d  delete word from the tree\n"
-            " q  quit, freeing all data\n\n"
+            " q  quit, freeing all data\n"
+            " e  eject, output the data\n\n"
             "choice: ");
         fgets(word, sizeof word, stdin);
 
+        char *p = NULL;
         switch (*word) {
-            char *p = NULL;
         case 'a':
             printf("enter word to add: ");
             if (!fgets(word, sizeof word, stdin)) {
@@ -87,6 +91,7 @@ int main(int argc, char **argv)
             t1 = tvgetf();
             res = tst_ins_del(&root, &p, INS, CPY);
             t2 = tvgetf();
+            opt[1] += t2-t1;
             if (res) {
                 idx++;
                 printf("  %s - inserted in %.6f sec. (%d words in tree)\n",
@@ -104,10 +109,11 @@ int main(int argc, char **argv)
             t1 = tvgetf();
             res = tst_search(root, word);
             t2 = tvgetf();
+            opt[2] += t2-t1;
             if (res)
                 printf("  found %s in %.6f sec.\n", (char *) res, t2 - t1);
             else
-                printf("  %s not found.\n", word);
+                printf("  %s not found, used %.6f sec\n", word, t2 - t1);
             break;
         case 's':
             printf("find words matching prefix (at least 1 char): ");
@@ -119,12 +125,13 @@ int main(int argc, char **argv)
             t1 = tvgetf();
             res = tst_search_prefix(root, word, sgl, &sidx, LMAX);
             t2 = tvgetf();
+            opt[3] += t2-t1;
             if (res) {
                 printf("  %s - searched prefix in %.6f sec\n\n", word, t2 - t1);
                 for (int i = 0; i < sidx; i++)
                     printf("suggest[%d] : %s\n", i, sgl[i]);
             } else
-                printf("  %s - not found\n", word);
+                printf("  %s - not found, used %.6f sec\n", word, t2 - t1);
             break;
         case 'd':
             printf("enter word to del: ");
@@ -138,8 +145,9 @@ int main(int argc, char **argv)
             t1 = tvgetf();
             res = tst_ins_del(&root, &p, DEL, CPY);
             t2 = tvgetf();
+            opt[4] += t2-t1;
             if (res)
-                printf("  delete failed.\n");
+                printf("  delete failed, used %.6f sec\n", t2 - t1);
             else {
                 printf("  deleted %s in %.6f sec\n", word, t2 - t1);
                 idx--;
@@ -149,6 +157,17 @@ int main(int argc, char **argv)
             tst_free_all(root);
             return 0;
             break;
+
+        case 'e': {
+            FILE *fp = fopen(OUTFILE, "a");
+            for(int i=0; i<5; ++i) {
+                fprintf(fp,"%.9f ",opt[i]);
+            }
+            fprintf(fp,"\n");
+            fclose(fp);
+            return 0;
+            break;
+        }
         default:
             fprintf(stderr, "error: invalid selection.\n");
             break;

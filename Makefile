@@ -2,7 +2,9 @@ TESTS = \
     test_cpy \
     test_ref
 
-CFLAGS = -Wall -Werror -g
+RAND_TEXT = bad_input.txt match_input.txt
+
+CFLAGS = -Wall -g -Werror
 
 # Control the build verbosity                                                   
 ifeq ("$(VERBOSE)","1")
@@ -44,5 +46,17 @@ test_%: test_%.o $(OBJS_LIB)
 clean:
 	$(RM) $(TESTS) $(OBJS)
 	$(RM) $(deps)
+
+bench: $(TESTS) 
+	-rm output.txt
+	./generate_input.py 10000
+	for method in $(TESTS); do\
+		echo "match" >> output.txt; \
+		./$$method < match_input.txt; \
+		echo "bad" >> output.txt; \
+		./$$method < bad_input.txt; \
+	done
+
+cache_test: $(TESTS)
 
 -include $(deps)
